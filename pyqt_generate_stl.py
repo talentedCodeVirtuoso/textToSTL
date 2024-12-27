@@ -28,6 +28,12 @@ class STLTool(QWidget):
         layout.addWidget(self.font_label)
         layout.addWidget(self.font_btn)
 
+        # Input count of Letters
+        self.letter_count = QLineEdit(self)
+        self.letter_count.setPlaceholderText("Enter count of text")
+        layout.addWidget(QLabel("count of letters:"))
+        layout.addWidget(self.letter_count)
+
         # Generate STL button
         self.generate_btn = QPushButton("Generate STL")
         self.generate_btn.clicked.connect(self.run_generate)
@@ -44,30 +50,40 @@ class STLTool(QWidget):
     def generate_stl(self):
         text = self.name_input.text()
         font_path = getattr(self, 'font_path', None)
-        if text and font_path:
+        count_letters = self.letter_count.text()
+
+        if text and font_path and count_letters:
             self.run_generate()
         else:
-            print("Please enter text and select a font.")
+            print("Please enter text, count of letters and select a font.")
 
     def run_generate(self):
         text = self.name_input.text()
         font_path = self.font_label.text()
+        count_letters = self.letter_count.text()
         if not text:
             QMessageBox.warning(self, "Input Error", "Please enter text to convert.")
             return
         if "No font selected" in font_path:
             font_path = None  # Font is optional
+        if not count_letters:
+            QMessageBox.warning(self, "Input Error", "Please enter count of letters.")
+            return
+        if not count_letters.isnumeric:
+            QMessageBox.warning(self, "Input Error", "Please enter number.")
+            return
         command = [
             "blender", 
             "--background", 
             "--python", 
-            f".\generate_stl.py", 
+            ".\\generate_stl.py", 
             "--", 
-            f"{text}", 
-            f"{font_path}"
+            text, 
+            font_path,
+            count_letters
         ]
         try:
-            result = subprocess.run(command, capture_output=True, text=True, check=True)
+            result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', check=True)
             # Print the output and error
             print("Output:")
             print(result.stdout)

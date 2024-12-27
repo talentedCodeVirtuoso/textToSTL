@@ -1,6 +1,7 @@
 import bpy
 import math
 import sys
+import locale
 
 def create_cube(name, location, scale, dimensions):
     # Add a cube
@@ -72,7 +73,7 @@ def apply_square_function(obj, scale_factor=1.0):
         z = vertex.co.z
         if z != prev_z:
             prev_z = z
-        vertex.co.x += scale_factor * ((z + 0.72) ** 2)  # Apply the square function
+        vertex.co.x += scale_factor * ((z * 20 + 0.035 * 20) ** 2)  # Apply the square function
     
     print(f"Applied square function (z = {scale_factor} * x^2) to '{obj.name}'.")
 
@@ -167,12 +168,41 @@ def create_text_stl(text, font_path=None, output_path="output.stl"):
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.delete(use_global=False)
 
-    text_len = len(text)
+    # Reverse the text to fit the right-to-left reading direction
+    hebrew_text = text[::-1]  # Reverse the string for right-to-left order
+
+    text_len = float(count_text)
 
     # Add a text object
     bpy.ops.object.text_add(location=(0, 0, 0))
     text_obj = bpy.context.object
-    text_obj.data.body = text
+    text_obj.data.body = hebrew_text
+
+    # Update dimensions to get the current size
+    bpy.context.view_layer.update()
+    current_width = text_obj.dimensions.x
+    current_height = text_obj.dimensions.y
+    print("current_width:", current_width)
+    print("current_height:", current_height)
+    # Desired dimensions in millimeters (converted to Blender units, assuming 1 unit = 1 meter)
+    desired_width = 0.15  # 150 mm
+    desired_height = 0.075  # 75 mm
+
+    # Calculate scaling factors
+    scale_x = desired_width / current_width
+    scale_y = desired_height / current_height
+    uniform_scale = min(scale_x, scale_y)  # To maintain proportions
+
+    # Apply scale to the text object
+    text_obj.scale = (scale_x, scale_y, 1.0)
+
+    # Update dimensions after scaling
+    bpy.context.view_layer.update()
+    updated_width = text_obj.dimensions.x
+    updated_height = text_obj.dimensions.y
+
+    print("Updated width:", updated_width)
+    print("Updated height:", updated_height)
 
     # Load a custom font if provided
     if font_path:
@@ -180,14 +210,14 @@ def create_text_stl(text, font_path=None, output_path="output.stl"):
         text_obj.data.font = font
 
     # Set extrusion for 3D depth
-    text_obj.data.extrude = 0.7  # Adjust for desired thickness
+    text_obj.data.extrude = 0.05  # Adjust for desired thickness
 
     # Bevel (Round) settings
     text_obj.data.bevel_depth = 0.0  # Bevel depth
     text_obj.data.bevel_resolution = 2  # Smooth bevel
 
     # Paragraph/Spacing settings
-    text_obj.data.space_character = 0.7  # Character spacing
+    # text_obj.data.space_character = 0.7  # Character spacing
 
     # Get the dimensions of the text object
     text_dimensions = text_obj.dimensions
@@ -196,24 +226,31 @@ def create_text_stl(text, font_path=None, output_path="output.stl"):
     width = text_dimensions.x
     height = text_dimensions.y
 
-    print("width:", width)
-    print("height:", height)
+    print("text length:", text_len)
 
     # Create two cubes
     # Cube 1 - located at one corner of the bounding box
     create_cube(
         name="Cube1",
-        location=(width / 5 * text_len, height / 2 - 0.1 , 0.773),  # Adjust based on the text position
+        location=(width / 7 * text_len, height / 8 * 3, 0.0573),  # Adjust based on the text position
         scale=(1, 1, 1),
-        dimensions=(0.05, 0.46, 0.147)
+        dimensions=(0.005, height / 4 * 3, 0.0147)
     )
 
     # Cube 2 - located at another corner of the bounding box
     create_cube(
         name="Cube2",
-        location=(width / 5 * text_len - 0.05 , height / 2 - 0.1, 0.773 + 0.09),  # Adjust based on the text position
+        location=(width / 7 * text_len - 0.005 , height / 8 * 3, 0.0573 + 0.009),  # Adjust based on the text position
         scale=(0.075, 0.061, 0.024),
-        dimensions=(0.15, 0.46, 0.0473)
+        dimensions=(0.015, height / 4 * 3, 0.00473)
+    )
+    print("width / 7 * text_len = ", width / 7 * text_len)
+    # Cube connector - located at middle of all text
+    create_cube(
+        name="Connector",
+        location=(width / 14 * (text_len + 0.05), height / 2, -0.0256),
+        scale=(1, 1, 1),
+        dimensions=(width / 7 * text_len - 0.008, 0.0025, 0.0025)
     )
 
     print("Start converting objects to mesh...")
@@ -221,31 +258,34 @@ def create_text_stl(text, font_path=None, output_path="output.stl"):
     # Convert the combined object to mesh
     convert_to_mesh()  # Replace with your object's name
 
-    # Combine all objects into one
+    # # Combine all objects into one
     combined_obj = combine_all_objects("CombinedObject")
 
-    # Subdivide the combined object with 10 cuts
+    # # Subdivide the combined object with 10 cuts
     subdivide_combined_object(combined_obj, 10)
 
-    combined_obj.location = (-0.04, 0.03, 0.73)
+    combined_obj.location = (-0.004, 0.003, 0.073)
 
-    scale = 0.5
-    decrease_factor = 0.3 / text_len * 5
+    scale = 0.2
+    decrease_factor = 0.035 / text_len * 5
     if combined_obj:
         apply_linear_subtraction_x_to_z(combined_obj, scale_factor=decrease_factor)
         apply_square_function(combined_obj, scale_factor=scale)
     else:
         print(f"Object '{combined_obj}' not found.")
 
-    # Export the text as an STL file
+    # # Export the text as an STL file
     export_to_stl(output_path)
     print(f"STL file created at {output_path}")
 
 
 args = sys.argv
 
+locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
+
 text_to_convert = args[5]
 font_file_path = args[6]
+count_text = args[7]
 # Customize inputs
 # text_to_convert = "PHONE"
 output_file_path = f".\\{text_to_convert}.stl"  # Replace with your desired path
