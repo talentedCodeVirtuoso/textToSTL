@@ -20,10 +20,37 @@ def create_cube(name, location, scale, dimensions):
 def convert_to_mesh():
     # Get the object
     print("Entering convert to mesh...")
-    bpy.ops.object.select_all(action='SELECT')  # Selects all objects
-
-    # Perform the conversion to mesh
+    # Ensure we are in Object Mode
+    bpy.ops.object.mode_set(mode='OBJECT')
+    
+    # Select all objects and convert them to a mesh
+    bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.convert(target='MESH')
+    
+    # Enter Edit Mode
+    bpy.ops.object.mode_set(mode='EDIT')
+    
+    # Reveal any hidden geometry (just in case)
+    bpy.ops.mesh.reveal()
+    
+    # Deselect all geometry
+    bpy.ops.mesh.select_all(action='DESELECT')
+
+    # bpy.ops.mesh.select_face_by_sides(number=4, type='EQUAL', extend=False)  # Select quads (likely top/bottom faces)
+    bpy.ops.mesh.hide(unselected=True)  # Hide top and bottom faces to prevent deletion
+    
+    # Select non-manifold geometry (inner faces and edges)
+    bpy.ops.mesh.select_non_manifold()
+
+    # Delete only non-manifold faces
+    bpy.ops.mesh.delete(type='ONLY_FACE')
+    
+    bpy.ops.mesh.reveal()
+
+    # Return to Object Mode
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+
     print(f"Object converted to mesh all...")
 
 def combine_all_objects(new_object_name="CombinedObject"):
@@ -36,7 +63,7 @@ def combine_all_objects(new_object_name="CombinedObject"):
     
     # Join all selected objects into one
     bpy.ops.object.join()
-    
+
     # Rename the combined object
     combined_obj = bpy.context.object
     combined_obj.name = new_object_name
@@ -191,7 +218,6 @@ def create_text_stl(text, font_path=None, output_path="output.stl"):
     # Calculate scaling factors
     scale_x = desired_width / current_width
     scale_y = desired_height / current_height
-    uniform_scale = min(scale_x, scale_y)  # To maintain proportions
 
     # Apply scale to the text object
     text_obj.scale = (scale_x, scale_y, 1.0)
@@ -210,14 +236,12 @@ def create_text_stl(text, font_path=None, output_path="output.stl"):
         text_obj.data.font = font
 
     # Set extrusion for 3D depth
-    text_obj.data.extrude = 0.05  # Adjust for desired thickness
+    text_obj.data.extrude = 0.05
 
     # Bevel (Round) settings
-    text_obj.data.bevel_depth = 0.0  # Bevel depth
-    text_obj.data.bevel_resolution = 2  # Smooth bevel
-
-    # Paragraph/Spacing settings
-    # text_obj.data.space_character = 0.7  # Character spacing
+    text_obj.data.bevel_depth = 0.005  # Bevel depth
+    text_obj.data.bevel_resolution = 1 # Adjust bevel smoothness
+    # text_obj.data.fill_mode = 'NONE'  # Disable face fill
 
     # Get the dimensions of the text object
     text_dimensions = text_obj.dimensions
@@ -258,7 +282,7 @@ def create_text_stl(text, font_path=None, output_path="output.stl"):
     # Convert the combined object to mesh
     convert_to_mesh()  # Replace with your object's name
 
-    # # Combine all objects into one
+    # Combine all objects into one
     combined_obj = combine_all_objects("CombinedObject")
 
     # # Subdivide the combined object with 10 cuts
